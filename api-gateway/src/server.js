@@ -8,8 +8,8 @@ const {RedisStore}=require("rate-limit-redis");
 const logger=require("./utils/logger.util.js");
 const proxy=require("express-http-proxy");
 const errorHandler = require('./middleware/errorHandler.middleware.js');
-
-
+const verifyJwt=require("./middleware/auth.middleware.js")
+const cookie=require("cookie-parser");
 
 
 const app=express();
@@ -20,6 +20,7 @@ const redisClient=new Redis(process.env.REDIS_URL);
 app.use(express.json());
 app.use(cors());
 app.use(helmet());
+app.use(cookie())
 
 
 const ratelimit=rateLimit({
@@ -63,6 +64,20 @@ app.use('/v1/auth',proxy( process.env.IDENTITY_SERVICE_URL,{
     ...proxyOptions,
     proxyReqOptDecorator:(proxyReqOpts,srcReq)=>{
         proxyReqOpts.headers["content-Type"]="application/json"
+        return proxyReqOpts;
+    },
+    userResDecorator : (proxyRes,proxyResData,userReq,userRes)=>{
+        logger.info(`Response received from Identity service: ${proxyRes.statusCode}`)
+        return proxyResData;
+    }
+}))
+
+//setting up proxy for our identity service
+app.use('/v1/post',verifyJwt,proxy( process.env.POST_SERVICE_URL,{
+    ...proxyOptions,
+    proxyReqOptDecorator:(proxyReqOpts,srcReq)=>{
+        proxyReqOpts.headers["content-Type"]="application/json",
+        proxyReqOpts.headers["x-user-id"] = srcReq.user._id;
         return proxyReqOpts;
     },
     userResDecorator : (proxyRes,proxyResData,userReq,userRes)=>{
