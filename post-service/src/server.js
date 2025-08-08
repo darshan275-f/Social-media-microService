@@ -49,7 +49,10 @@ app.use((req,res,next)=>{
 
 
 const Router=require("./routes/post.route.js");
-app.use("/api/post",Router);
+app.use("/api/post",(req,res,next)=>{
+    req.redisClient=redisClient;
+    next();
+},Router);
 
 app.listen(process.env.PORT,()=>{
     logger.info(`Server is running on port ${process.env.PORT}`);
